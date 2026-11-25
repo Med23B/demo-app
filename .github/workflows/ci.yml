@@ -23,6 +23,8 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     permissions:
       contents: read
       packages: write
@@ -44,3 +46,29 @@ jobs:
           build-args: APP_VERSION=${{ github.sha }}
           tags: ${{ env.IMAGE }}:sha-${{ github.sha }}
       - run: echo "${{ env.IMAGE }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+
+  promote:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Open PR on the platform repo
+        env:
+          GH_TOKEN: ${{ secrets.PLATFORM_REPO_TOKEN }}
+          IMAGE: ghcr.io/med23b/demo-app
+          DIGEST: ${{ needs.build.outputs.digest }}
+          SHA: ${{ github.sha }}
+        run: |
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/Med23B/Cloud-Operations-Platform.git" platform
+          cd platform
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+          BRANCH="bump-demo-app-${SHA::7}"
+          git checkout -b "$BRANCH"
+          sed -i -E "s#(image: ${IMAGE}@)sha256:[0-9a-f]{64}#\1${DIGEST}#" apps/demo-app/demo-app.yaml
+          git commit -am "demo-app: deploy ${SHA::7}"
+          git push origin "$BRANCH"
+          gh pr create --repo Med23B/Cloud-Operations-Platform --base main --head "$BRANCH" \
+            --title "demo-app: deploy ${SHA::7}" \
+            --body "Image ${IMAGE}@${DIGEST} built from commit ${SHA}"

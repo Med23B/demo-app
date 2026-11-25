@@ -20,7 +20,7 @@ app.get('/', (req, res) => {
     return res.status(500).json({ version: VERSION, error: 'injected' });
   }
   requests.inc({ status: '200' });
-  res.json({ version: VERSION, message: 'hello from demo-app' });
+  res.json({ version: VERSION, message: 'hello test for workflow' });
 });
 
 app.get('/metrics', async (req, res) => {
