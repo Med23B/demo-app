@@ -28,6 +28,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     env:
       IMAGE: ghcr.io/med23b/demo-app
     steps:
@@ -46,6 +48,17 @@ jobs:
           build-args: APP_VERSION=${{ github.sha }}
           tags: ${{ env.IMAGE }}:sha-${{ github.sha }}
       - run: echo "${{ env.IMAGE }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: sigstore/cosign-installer@v3
+      - name: Sign image (keyless)
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
 
   promote:
     needs: build
