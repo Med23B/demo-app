@@ -1,5 +1,7 @@
 FROM node:22-alpine
 WORKDIR /app
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
 COPY package*.json ./
 RUN npm ci --omit=dev
 COPY server.js ./
